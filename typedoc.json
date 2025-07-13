@@ -31,10 +31,6 @@
     "Property",
     "Variable"
   ],
-  "navigation": {
-    "includeCategories": true,
-    "includeGroups": true
-  },
   "plugin": [],
   "searchInComments": true,
   "validation": {
