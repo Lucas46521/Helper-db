@@ -1,0 +1,52 @@
+
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "theme": "default",
+  "name": "Helper.DB v1.4.0 - API Reference",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "readme": "README.md",
+  "categorizeByGroup": true,
+  "defaultCategory": "Other",
+  "categoryOrder": [
+    "Database Core",
+    "Drivers", 
+    "Cache & Performance",
+    "Backup & Export",
+    "Search & Analytics",
+    "Validation & Schema",
+    "Transactions",
+    "Utilities",
+    "*"
+  ],
+  "sort": ["source-order"],
+  "kindSortOrder": [
+    "Class",
+    "Interface", 
+    "Function",
+    "Method",
+    "Property",
+    "Variable"
+  ],
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "plugin": [],
+  "searchInComments": true,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": false
+  },
+  "treatWarningsAsErrors": false,
+  "intentionallyNotExported": [],
+  "requiredToBeDocumented": [
+    "Class",
+    "Interface",
+    "Function"
+  ]
+}
