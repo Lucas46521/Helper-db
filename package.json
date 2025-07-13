@@ -1,6 +1,6 @@
 {
     "name": "helper.db",
-    "version": "1.0.3",
+    "version": "1.4.0",
     "description": "Uma package fácil, eficiente e persistente para better-sqlite3, projetado para ser simples de configurar e usar. Fork do nosso amado quick.db, criado por lucas46521 para adicionar funções extras e corrigir erros.",
     "main": "out/index.js",
     "types": "out/index.d.ts",
