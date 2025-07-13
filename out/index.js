@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HelperDB = exports.JSONDriver = exports.MemoryDriver = exports.MySQLDriver = exports.SqliteDriver = exports.MongoDriver = void 0;
+exports.HelperDB = exports.MariaDBDriver = exports.JSONDriver = exports.MemoryDriver = exports.MySQLDriver = exports.SqliteDriver = exports.MongoDriver = void 0;
 const lodash_1 = require("lodash");
 const SqliteDriver_1 = require("./drivers/SqliteDriver");
 var MongoDriver_1 = require("./drivers/MongoDriver");
@@ -13,6 +13,8 @@ var MemoryDriver_1 = require("./drivers/MemoryDriver");
 Object.defineProperty(exports, "MemoryDriver", { enumerable: true, get: function () { return MemoryDriver_1.MemoryDriver; } });
 var JSONDriver_1 = require("./drivers/JSONDriver");
 Object.defineProperty(exports, "JSONDriver", { enumerable: true, get: function () { return JSONDriver_1.JSONDriver; } });
+var MariaDBDriver_1 = require("./drivers/MariaDBDriver");
+Object.defineProperty(exports, "MariaDBDriver", { enumerable: true, get: function () { return MariaDBDriver_1.MariaDBDriver; } });
 class HelperDB {
     static instance;
     prepared;
@@ -43,20 +45,18 @@ class HelperDB {
     if (currentNumber == null)
       currentNumber = 0;
     if (typeof currentNumber != "number") {
-      try {
-        currentNumber = parseFloat(currentNumber);
-      }
-      catch (_) {
+      const parsed = parseFloat(currentNumber);
+      if (isNaN(parsed)) {
         throw new Error(`Current value with key: (${key}) is not a number and couldn't be parsed to a number`);
       }
+      currentNumber = parsed;
     }
     if (typeof value != "number") {
-      try {
-        value = parseFloat(value);
-      }
-      catch (_) {
+      const parsed = parseFloat(value);
+      if (isNaN(parsed)) {
         throw new Error(`Value to add/subtract with key: (${key}) is not a number and couldn't be parsed to a number`);
       }
+      value = parsed;
     }
     sub ? (currentNumber -= value): (currentNumber += value);
     await this.set(key, currentNumber);
@@ -182,13 +182,22 @@ class HelperDB {
     if (!Array.isArray(value) && typeof value != "function")
       value = [value];
     const data = [];
+    let removed = false;
     for (const i in currentArr) {
-      if (Array.isArray(value)
-        ? value.includes(currentArr[i]): value(currentArr[i], i))
-        continue;
-      data.push(currentArr[i]);
-      if (once)
-        break;
+      const shouldRemove = Array.isArray(value)
+        ? value.includes(currentArr[i])
+        : value(currentArr[i], i);
+      
+      if (shouldRemove) {
+        if (once && removed) {
+          data.push(currentArr[i]);
+        } else {
+          removed = true;
+          if (!once) continue;
+        }
+      } else {
+        data.push(currentArr[i]);
+      }
     }
     return this.set(key, data);
   }
