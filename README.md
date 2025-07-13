@@ -22,6 +22,18 @@
 
 Helper.db é uma biblioteca de banco de dados JavaScript de **código aberto** projetada para facilitar o armazenamento e acesso a dados em aplicações de pequeno a médio porte. Com suporte a múltiplos drivers e uma API intuitiva, é perfeita tanto para iniciantes quanto para desenvolvedores experientes.
 
+### 🔗 **Origem e Evolução**
+
+Helper.DB é baseado na popular biblioteca [**quick.db**](https://github.com/TrueXPixels/quick.db), que infelizmente **não está mais sendo mantida** ativamente. Reconhecendo a importância desta ferramenta na comunidade JavaScript, criamos o Helper.DB para:
+
+- 🔄 **Continuar o legado**: Manter a simplicidade e facilidade de uso que tornaram a quick.db tão popular
+- 🚀 **Expandir funcionalidades**: Adicionar recursos avançados como múltiplos drivers, cache inteligente, sistema de eventos e muito mais
+- 🐛 **Corrigir problemas**: Resolver bugs conhecidos e melhorar a estabilidade
+- 📈 **Modernizar**: Atualizar para as melhores práticas atuais do JavaScript/TypeScript
+- 🛡️ **Manter ativo**: Garantir suporte contínuo e atualizações regulares
+
+> 💡 **Para usuários da quick.db**: Helper.DB mantém compatibilidade com a API original, facilitando a migração. Consulte nossa [documentação de migração](https://github.com/Lucas46521/Helper.db/wiki/Migration-Guide) para mais detalhes.
+
 ### 🎯 **Por que escolher Helper.DB?**
 
 | Característica | Descrição |
