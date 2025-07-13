@@ -29,7 +29,10 @@
     },
     "scripts": {
         "test": "jest --roots tests",
-        "docgen": "typedoc"
+        "build": "tsc",
+        "lint": "eslint --ext \".ts\" ./src",
+        "prettier": "prettier --write ./src",
+        "docgen": "typedoc --out docs out/index.d.ts --theme default --includeVersion --name \"Helper.DB v1.4.0\" --readme README.md --excludePrivate --excludeInternal"
     },
     "lint-staged": {
         "*.{ts}": "eslint"
