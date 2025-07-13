@@ -1,6 +1,6 @@
 
 {
-  "entryPoints": ["src/index.ts"],
+  "entryPoints": ["out/index.d.ts"],
   "out": "docs",
   "theme": "default",
   "name": "Helper.DB v1.4.0 - API Reference",
