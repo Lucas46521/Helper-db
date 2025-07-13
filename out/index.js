@@ -536,6 +536,421 @@ class HelperDB {
     }
     return results;
   }
+
+  async ping() {
+    const startTime = process.hrtime.bigint();
+    
+    try {
+      // Faz uma operação simples para testar a conexão
+      await this.driver.getAllRows(this.tableName);
+      
+      const endTime = process.hrtime.bigint();
+      const latencyNs = endTime - startTime;
+      const latencyMs = Number(latencyNs) / 1000000; // Converter para milissegundos
+      
+      return {
+        status: 'connected',
+        latency: Math.round(latencyMs * 100) / 100, // Arredondar para 2 casas decimais
+        timestamp: new Date().toISOString(),
+        driver: this.driver.constructor.name
+      };
+    } catch (error) {
+      const endTime = process.hrtime.bigint();
+      const latencyNs = endTime - startTime;
+      const latencyMs = Number(latencyNs) / 1000000;
+      
+      return {
+        status: 'disconnected',
+        error: error.message,
+        latency: Math.round(latencyMs * 100) / 100,
+        timestamp: new Date().toISOString(),
+        driver: this.driver.constructor.name
+      };
+    }
+  }
+
+  async sort(key = "", field, order = "asc") {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof field !== "string") throw new Error("Second argument (field) needs to be a string");
+    if (!["asc", "desc"].includes(order)) throw new Error("Third argument (order) must be 'asc' or 'desc'");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    
+    return data.sort((a, b) => {
+      const valueA = a.value && typeof a.value === 'object' ? a.value[field] : a.value;
+      const valueB = b.value && typeof b.value === 'object' ? b.value[field] : b.value;
+      
+      if (valueA < valueB) return order === "asc" ? -1 : 1;
+      if (valueA > valueB) return order === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+
+  async limit(count, key = "") {
+    if (typeof count !== "number" || count < 0) throw new Error("First argument (count) must be a positive number");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    return data.slice(0, count);
+  }
+
+  async skip(count, key = "") {
+    if (typeof count !== "number" || count < 0) throw new Error("First argument (count) must be a positive number");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    return data.slice(count);
+  }
+
+  async distinct(field, key = "") {
+    if (typeof field !== "string") throw new Error("First argument (field) needs to be a string");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    const values = new Set();
+    
+    data.forEach(entry => {
+      if (entry.value && typeof entry.value === 'object' && field in entry.value) {
+        values.add(entry.value[field]);
+      }
+    });
+    
+    return Array.from(values);
+  }
+
+  async count(key = "") {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    return Array.isArray(data) ? data.length : 0;
+  }
+
+  async sum(field, key = "") {
+    if (typeof field !== "string") throw new Error("First argument (field) needs to be a string");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    let total = 0;
+    
+    data.forEach(entry => {
+      if (entry.value && typeof entry.value === 'object' && field in entry.value) {
+        const value = parseFloat(entry.value[field]);
+        if (!isNaN(value)) total += value;
+      }
+    });
+    
+    return total;
+  }
+
+  async avg(field, key = "") {
+    if (typeof field !== "string") throw new Error("First argument (field) needs to be a string");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    let total = 0;
+    let count = 0;
+    
+    data.forEach(entry => {
+      if (entry.value && typeof entry.value === 'object' && field in entry.value) {
+        const value = parseFloat(entry.value[field]);
+        if (!isNaN(value)) {
+          total += value;
+          count++;
+        }
+      }
+    });
+    
+    return count > 0 ? total / count : 0;
+  }
+
+  async min(field, key = "") {
+    if (typeof field !== "string") throw new Error("First argument (field) needs to be a string");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    let minimum = Infinity;
+    
+    data.forEach(entry => {
+      if (entry.value && typeof entry.value === 'object' && field in entry.value) {
+        const value = parseFloat(entry.value[field]);
+        if (!isNaN(value) && value < minimum) minimum = value;
+      }
+    });
+    
+    return minimum === Infinity ? null : minimum;
+  }
+
+  async max(field, key = "") {
+    if (typeof field !== "string") throw new Error("First argument (field) needs to be a string");
+    if (typeof key !== "string") throw new Error("Second argument (key) needs to be a string");
+
+    const data = key === "" ? await this.all() : (await this.get(key)) ?? [];
+    let maximum = -Infinity;
+    
+    data.forEach(entry => {
+      if (entry.value && typeof entry.value === 'object' && field in entry.value) {
+        const value = parseFloat(entry.value[field]);
+        if (!isNaN(value) && value > maximum) maximum = value;
+      }
+    });
+    
+    return maximum === -Infinity ? null : maximum;
+  }
+
+  async splice(key, start, deleteCount = 0, ...items) {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof start !== "number") throw new Error("Second argument (start) needs to be a number");
+    if (typeof deleteCount !== "number") throw new Error("Third argument (deleteCount) needs to be a number");
+
+    const currentArr = await this.getArray(key);
+    const removed = currentArr.splice(start, deleteCount, ...items);
+    await this.set(key, currentArr);
+    return removed;
+  }
+
+  async indexOf(key, searchElement, fromIndex = 0) {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof fromIndex !== "number") throw new Error("Third argument (fromIndex) needs to be a number");
+
+    const currentArr = await this.getArray(key);
+    return currentArr.indexOf(searchElement, fromIndex);
+  }
+
+  async includes(key, searchElement, fromIndex = 0) {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof fromIndex !== "number") throw new Error("Third argument (fromIndex) needs to be a number");
+
+    const currentArr = await this.getArray(key);
+    return currentArr.includes(searchElement, fromIndex);
+  }
+
+  async filter(key, callback) {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof callback !== "function") throw new Error("Second argument (callback) needs to be a function");
+
+    const currentArr = await this.getArray(key);
+    const filtered = currentArr.filter(callback);
+    await this.set(key, filtered);
+    return filtered;
+  }
+
+  async map(key, callback) {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof callback !== "function") throw new Error("Second argument (callback) needs to be a function");
+
+    const currentArr = await this.getArray(key);
+    const mapped = currentArr.map(callback);
+    await this.set(key, mapped);
+    return mapped;
+  }
+
+  async reduce(key, callback, initialValue) {
+    if (typeof key !== "string") throw new Error("First argument (key) needs to be a string");
+    if (typeof callback !== "function") throw new Error("Second argument (callback) needs to be a function");
+
+    const currentArr = await this.getArray(key);
+    return arguments.length >= 3 ? currentArr.reduce(callback, initialValue) : currentArr.reduce(callback);
+  }
+
+  async setMany(entries) {
+    if (!Array.isArray(entries)) throw new Error("First argument (entries) needs to be an array");
+    
+    const results = [];
+    for (const entry of entries) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new Error("Each entry must be an array with [key, value]");
+      }
+      const [key, value] = entry;
+      const result = await this.set(key, value);
+      results.push(result);
+    }
+    return results;
+  }
+
+  async getMany(keys) {
+    if (!Array.isArray(keys)) throw new Error("First argument (keys) needs to be an array");
+    
+    const results = [];
+    for (const key of keys) {
+      const value = await this.get(key);
+      results.push({ key, value });
+    }
+    return results;
+  }
+
+  async deleteMany(keys) {
+    if (!Array.isArray(keys)) throw new Error("First argument (keys) needs to be an array");
+    
+    let totalDeleted = 0;
+    for (const key of keys) {
+      const deleted = await this.delete(key);
+      totalDeleted += deleted;
+    }
+    return totalDeleted;
+  }
+
+  async updateMany(updates) {
+    if (!Array.isArray(updates)) throw new Error("First argument (updates) needs to be an array");
+    
+    const results = [];
+    for (const update of updates) {
+      if (!Array.isArray(update) || update.length !== 2) {
+        throw new Error("Each update must be an array with [key, value]");
+      }
+      const [key, value] = update;
+      if (await this.has(key)) {
+        const result = await this.set(key, value);
+        results.push({ key, updated: true, value: result });
+      } else {
+        results.push({ key, updated: false, value: null });
+      }
+    }
+    return results;
+  }
+
+  async aggregate(operations) {
+    if (!Array.isArray(operations)) throw new Error("First argument (operations) needs to be an array");
+    
+    const data = await this.all();
+    const results = {};
+    
+    for (const op of operations) {
+      const { type, field, key = '' } = op;
+      const targetData = key === '' ? data : (await this.get(key)) ?? [];
+      
+      switch (type) {
+        case 'count':
+          results[`${type}_${field || 'all'}`] = await this.count(key);
+          break;
+        case 'sum':
+          results[`${type}_${field}`] = await this.sum(field, key);
+          break;
+        case 'avg':
+          results[`${type}_${field}`] = await this.avg(field, key);
+          break;
+        case 'min':
+          results[`${type}_${field}`] = await this.min(field, key);
+          break;
+        case 'max':
+          results[`${type}_${field}`] = await this.max(field, key);
+          break;
+        default:
+          throw new Error(`Unknown aggregation type: ${type}`);
+      }
+    }
+    
+    return results;
+  }
+
+  async backup(filePath) {
+    if (typeof filePath !== "string") throw new Error("First argument (filePath) needs to be a string");
+    
+    const allData = await this.all();
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      driver: this.driver.constructor.name,
+      table: this.tableName,
+      data: allData
+    };
+    
+    const fs = require('fs').promises;
+    await fs.writeFile(filePath, JSON.stringify(backupData, null, 2));
+    return backupData;
+  }
+
+  async restore(filePath) {
+    if (typeof filePath !== "string") throw new Error("First argument (filePath) needs to be a string");
+    
+    const fs = require('fs').promises;
+    const backupContent = await fs.readFile(filePath, 'utf8');
+    const backupData = JSON.parse(backupContent);
+    
+    // Limpar dados existentes
+    await this.deleteAll();
+    
+    // Restaurar dados
+    for (const entry of backupData.data) {
+      await this.set(entry.id, entry.value);
+    }
+    
+    return {
+      restored: backupData.data.length,
+      timestamp: backupData.timestamp,
+      originalDriver: backupData.driver,
+      originalTable: backupData.table
+    };
+  }
+
+  async export(format = 'json', filePath) {
+    if (!['json', 'csv', 'xml'].includes(format)) {
+      throw new Error("Format must be 'json', 'csv', or 'xml'");
+    }
+    if (typeof filePath !== "string") throw new Error("Second argument (filePath) needs to be a string");
+    
+    const allData = await this.all();
+    const fs = require('fs').promises;
+    let content;
+    
+    switch (format) {
+      case 'json':
+        content = JSON.stringify(allData, null, 2);
+        break;
+      case 'csv':
+        const headers = ['id', 'value'];
+        const csvRows = [headers.join(',')];
+        allData.forEach(entry => {
+          csvRows.push(`"${entry.id}","${JSON.stringify(entry.value).replace(/"/g, '""')}"`);
+        });
+        content = csvRows.join('\n');
+        break;
+      case 'xml':
+        content = '<?xml version="1.0" encoding="UTF-8"?>\n<data>\n';
+        allData.forEach(entry => {
+          content += `  <entry id="${entry.id}">\n`;
+          content += `    <value>${JSON.stringify(entry.value)}</value>\n`;
+          content += `  </entry>\n`;
+        });
+        content += '</data>';
+        break;
+    }
+    
+    await fs.writeFile(filePath, content);
+    return { exported: allData.length, format, filePath };
+  }
+
+  async import(filePath, format = 'json') {
+    if (!['json', 'csv'].includes(format)) {
+      throw new Error("Format must be 'json' or 'csv'");
+    }
+    if (typeof filePath !== "string") throw new Error("First argument (filePath) needs to be a string");
+    
+    const fs = require('fs').promises;
+    const content = await fs.readFile(filePath, 'utf8');
+    let data = [];
+    
+    switch (format) {
+      case 'json':
+        data = JSON.parse(content);
+        break;
+      case 'csv':
+        const lines = content.split('\n').slice(1); // Skip header
+        data = lines.map(line => {
+          const [id, valueStr] = line.split(',').map(field => field.replace(/^"(.*)"$/, '$1'));
+          return { id, value: JSON.parse(valueStr.replace(/""/g, '"')) };
+        });
+        break;
+    }
+    
+    let imported = 0;
+    for (const entry of data) {
+      if (entry.id && entry.value !== undefined) {
+        await this.set(entry.id, entry.value);
+        imported++;
+      }
+    }
+    
+    return { imported, total: data.length };
+  }
 }
 exports.HelperDB = HelperDB;
 //# sourceMappingURL=index.js.map
