@@ -1,6 +1,7 @@
-MIT License
 
-Copyright (c) 2018 Loren Cerri
+MIT License with Attribution Requirement
+
+Copyright (c) 2024 Lucas46521 (Helper.DB)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -11,6 +12,13 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+**ATTRIBUTION REQUIREMENT**: Any use of this Software, in whole or in part, 
+in any project, application, or derivative work must include visible credit 
+to "Helper.DB by Lucas46521" in the following manner:
+- In documentation, README files, or about pages
+- In user interfaces where technically feasible
+- In source code comments where the Software is utilized
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
