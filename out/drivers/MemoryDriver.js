@@ -31,7 +31,7 @@ class MemoryDriver {
     async getRowByKey(table, key) {
         const store = this.getOrCreateTable(table);
         const val = store.get(key);
-        return [val == null ? null : val, false];
+        return [val == null ? null : val, val != null];
     }
     async setRowByKey(table, key, value, update) {
         const store = this.getOrCreateTable(table);

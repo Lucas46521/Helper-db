@@ -256,7 +256,7 @@ class HelperDB {
     if (typeof key !== "string")
       throw new Error("Third argument (key) needs to be a string");
 
-    const data = key === "" ? await this.all(): (await this.get(key)) ?? [];
+    const data = key === "" ? await this.all() : await this.getArray(key);
 
     return data.filter((entry) => {
       if (!entry.value) return false;
