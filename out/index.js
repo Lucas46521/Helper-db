@@ -3,6 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HelperDB = exports.MariaDBDriver = exports.JSONDriver = exports.MemoryDriver = exports.MySQLDriver = exports.SqliteDriver = exports.MongoDriver = void 0;
 const lodash_1 = require("lodash");
 const SqliteDriver_1 = require("./drivers/SqliteDriver");
+const CacheManager = require("./cache/CacheManager").CacheManager;
+const BackupManager = require("./backup/BackupManager").BackupManager;
+const SchemaValidator = require("./validation/SchemaValidator").SchemaValidator;
+const IndexManager = require("./indexing/IndexManager").IndexManager;
+const TransactionManager = require("./transaction/TransactionManager").TransactionManager;
 var MongoDriver_1 = require("./drivers/MongoDriver");
 Object.defineProperty(exports, "MongoDriver", { enumerable: true, get: function () { return MongoDriver_1.MongoDriver; } });
 var SqliteDriver_2 = require("./drivers/SqliteDriver");
@@ -30,11 +35,24 @@ class HelperDB {
         options.filePath ??= "json.sqlite";
         options.driver ??= new SqliteDriver_1.SqliteDriver(options.filePath);
         options.normalKeys ??= false;
+        options.enableCache ??= true;
+        options.enableBackup ??= false;
+        options.enableValidation ??= false;
+        options.enableIndexing ??= false;
+        options.enableTransactions ??= false;
+        
         this.options = options;
         this._driver = options.driver;
         this.tableName = options.table;
         this.normalKeys = options.normalKeys;
         this.prepared = this.driver.prepare(this.tableName);
+        
+        // Inicializar funcionalidades opcionais
+        this.cache = options.enableCache ? new CacheManager(options.cacheSize, options.cacheTTL) : null;
+        this.backupManager = options.enableBackup ? new BackupManager(this, options.backupOptions) : null;
+        this.validator = options.enableValidation ? new SchemaValidator() : null;
+        this.indexManager = options.enableIndexing ? new IndexManager() : null;
+        this.transactionManager = options.enableTransactions ? new TransactionManager(this) : null;
     }
     async addSubtract(key, value, sub = false) {
     if (typeof key != "string")
@@ -218,6 +236,67 @@ class HelperDB {
   }
   useNormalKeys(activate) {
     this.normalKeys = activate;
+  }
+
+  // Configuração de cache
+  enableCache(size = 1000, ttl = 300000) {
+    this.cache = new CacheManager(size, ttl);
+  }
+
+  disableCache() {
+    this.cache = null;
+  }
+
+  // Configuração de backup
+  async enableAutoBackup(options = {}) {
+    if (!this.backupManager) {
+      this.backupManager = new BackupManager(this, options);
+    }
+    await this.backupManager.startAutoBackup();
+  }
+
+  stopAutoBackup() {
+    if (this.backupManager) {
+      this.backupManager.stopAutoBackup();
+    }
+  }
+
+  // Configuração de validação
+  defineSchema(schema) {
+    if (!this.validator) {
+      this.validator = new SchemaValidator();
+    }
+    this.validator.defineSchema(this.tableName, schema);
+  }
+
+  // Configuração de índices
+  createIndex(field) {
+    if (!this.indexManager) {
+      this.indexManager = new IndexManager();
+    }
+    this.indexManager.createIndex(this.tableName, field);
+  }
+
+  // Métodos de transação
+  async beginTransaction() {
+    if (!this.transactionManager) {
+      this.transactionManager = new TransactionManager(this);
+    }
+    return await this.transactionManager.beginTransaction();
+  }
+
+  async commitTransaction(transactionId) {
+    if (this.transactionManager) {
+      return await this.transactionManager.commit(transactionId);
+    }
+    throw new Error('Transações não estão habilitadas');
+  }
+
+  async rollbackTransaction(transactionId) {
+    if (this.transactionManager) {
+      return await this.transactionManager.rollback(transactionId);
+    }
+    throw new Error('Transações não estão habilitadas');
   }
   async search(term, property = null) {
     if (term == null && property == null)
