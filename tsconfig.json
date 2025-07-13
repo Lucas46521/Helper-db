@@ -2,7 +2,7 @@
     "compilerOptions": {
         "target": "esnext",
         "module": "CommonJS",
-        "rootDir": "./",
+        "rootDir": "./src",
         "sourceMap": true,
         "outDir": "./out",
         "removeComments": true,
@@ -13,5 +13,5 @@
         "declaration": true
     },
     "exclude": ["tests", "out", "node_modules", ".github", "docs"],
-    "include": ["*.ts", "**/*.ts"]
+    "include": ["src/**/*"]
 }
