@@ -20,7 +20,7 @@ var JSONDriver_1 = require("./drivers/JSONDriver");
 Object.defineProperty(exports, "JSONDriver", { enumerable: true, get: function () { return JSONDriver_1.JSONDriver; } });
 var MariaDBDriver_1 = require("./drivers/MariaDBDriver");
 Object.defineProperty(exports, "MariaDBDriver", { enumerable: true, get: function () { return MariaDBDriver_1.MariaDBDriver; } });
-class HelperDB {
+class HelperDB extends require("events").EventEmitter {
     static instance;
     prepared;
     _driver;
@@ -31,15 +31,47 @@ class HelperDB {
         return this._driver;
     }
     constructor(options = {}) {
+        super(); // Inicializar EventEmitter
+        
+        // 📁 table: Nome da tabela/coleção a ser usada (padrão: "json")
         options.table ??= "json";
+        
+        // 📂 filePath: Caminho do arquivo de banco (SQLite/JSON) (padrão: "json.sqlite")
         options.filePath ??= "json.sqlite";
+        
+        // 🔌 driver: Driver de banco a ser usado (padrão: SqliteDriver)
         options.driver ??= new SqliteDriver_1.SqliteDriver(options.filePath);
+        
+        // 🔑 normalKeys: Usar chaves normais ao invés de notação de ponto (padrão: false)
         options.normalKeys ??= false;
+        
+        // 🚀 enableCache: Habilitar sistema de cache para melhor performance (padrão: true)
         options.enableCache ??= true;
+        
+        // 💾 enableBackup: Habilitar sistema de backup automático (padrão: false)
         options.enableBackup ??= false;
+        
+        // ✅ enableValidation: Habilitar validação de schema (padrão: false)
         options.enableValidation ??= false;
+        
+        // 📊 enableIndexing: Habilitar sistema de índices (padrão: false)
         options.enableIndexing ??= false;
+        
+        // 🔄 enableTransactions: Habilitar suporte a transações (padrão: false)
         options.enableTransactions ??= false;
+        
+        // 🗂️ cacheSize: Tamanho máximo do cache (padrão: 1000)
+        options.cacheSize ??= 1000;
+        
+        // ⏰ cacheTTL: Tempo de vida do cache em ms (padrão: 300000 = 5 minutos)
+        options.cacheTTL ??= 300000;
+        
+        // 📦 backupOptions: Opções de configuração para backup automático
+        options.backupOptions ??= {
+            interval: 3600000, // 1 hora
+            maxBackups: 10,
+            path: "./backups"
+        };
         
         this.options = options;
         this._driver = options.driver;
@@ -53,6 +85,13 @@ class HelperDB {
         this.validator = options.enableValidation ? new SchemaValidator() : null;
         this.indexManager = options.enableIndexing ? new IndexManager() : null;
         this.transactionManager = options.enableTransactions ? new TransactionManager(this) : null;
+        
+        // Emitir evento de inicialização
+        this.emit('initialized', {
+            table: this.tableName,
+            driver: this._driver.constructor.name,
+            options: this.options
+        });
     }
     async addSubtract(key, value, sub = false) {
     if (typeof key != "string")
@@ -102,12 +141,20 @@ class HelperDB {
   async get(key) {
     if (typeof key != "string")
       throw new Error("First argument (key) needs to be a string");
+    
+    this.emit('beforeGet', { key });
+    
+    let result;
     if (key.includes(".") && !this.normalKeys) {
       const keySplit = key.split(".");
-      const [result] = await this.driver.getRowByKey(this.tableName, keySplit[0]);
-      return (0, lodash_1.get)(result, keySplit.slice(1).join("."));
+      const [data] = await this.driver.getRowByKey(this.tableName, keySplit[0]);
+      result = (0, lodash_1.get)(data, keySplit.slice(1).join("."));
+    } else {
+      const [data] = await this.driver.getRowByKey(this.tableName, key);
+      result = data;
     }
-    const [result] = await this.driver.getRowByKey(this.tableName, key);
+    
+    this.emit('get', { key, value: result });
     return result;
   }
   async set(key, value) {
@@ -115,21 +162,28 @@ class HelperDB {
       throw new Error("First argument (key) needs to be a string");
     if (value == null)
       throw new Error("Missing second argument (value)");
+    
+    this.emit('beforeSet', { key, value });
+    
+    let result;
     if (key.includes(".") && !this.normalKeys) {
       const keySplit = key.split(".");
-      const [result,
-        exist] = await this.driver.getRowByKey(this.tableName, keySplit[0]);
+      const [existingResult, exist] = await this.driver.getRowByKey(this.tableName, keySplit[0]);
       let obj;
-      if (result instanceof Object == false) {
+      if (existingResult instanceof Object == false) {
         obj = {};
       } else {
-        obj = result;
+        obj = existingResult;
       }
       const valueSet = (0, lodash_1.set)(obj ?? {}, keySplit.slice(1).join("."), value);
-      return this.driver.setRowByKey(this.tableName, keySplit[0], valueSet, exist);
+      result = await this.driver.setRowByKey(this.tableName, keySplit[0], valueSet, exist);
+    } else {
+      const exist = (await this.driver.getRowByKey(this.tableName, key))[1];
+      result = await this.driver.setRowByKey(this.tableName, key, value, exist);
     }
-    const exist = (await this.driver.getRowByKey(this.tableName, key))[1];
-    return this.driver.setRowByKey(this.tableName, key, value, exist);
+    
+    this.emit('set', { key, value, result });
+    return result;
   }
   async has(key) {
     return (await this.get(key)) != null;
@@ -137,13 +191,21 @@ class HelperDB {
   async delete(key) {
     if (typeof key != "string")
       throw new Error("First argument (key) needs to be a string");
+    
+    this.emit('beforeDelete', { key });
+    
+    let result;
     if (key.includes(".")) {
       const keySplit = key.split(".");
       const obj = (await this.get(keySplit[0])) ?? {};
       (0, lodash_1.unset)(obj, keySplit.slice(1).join("."));
-      return this.set(keySplit[0], obj);
+      result = await this.set(keySplit[0], obj);
+    } else {
+      result = await this.driver.deleteRowByKey(this.tableName, key);
     }
-    return this.driver.deleteRowByKey(this.tableName, key);
+    
+    this.emit('delete', { key, result });
+    return result;
   }
   async deleteAll() {
     return this.driver.deleteAllRows(this.tableName);
@@ -159,9 +221,15 @@ class HelperDB {
       throw new Error("First argument (key) needs to be a string");
     if (values.length === 0)
       throw new Error("Missing second argument (value)");
+    
+    this.emit('beforePush', { key, values });
+    
     const currentArr = await this.getArray(key);
     currentArr.push(...values);
-    return this.set(key, currentArr);
+    const result = await this.set(key, currentArr);
+    
+    this.emit('push', { key, values, newLength: currentArr.length });
+    return result;
   }
   async unshift(key, value) {
     if (typeof key != "string")
@@ -540,6 +608,8 @@ class HelperDB {
   async ping() {
     const startTime = process.hrtime.bigint();
     
+    this.emit('beforePing');
+    
     try {
       // Faz uma operação simples para testar a conexão
       await this.driver.getAllRows(this.tableName);
@@ -548,24 +618,30 @@ class HelperDB {
       const latencyNs = endTime - startTime;
       const latencyMs = Number(latencyNs) / 1000000; // Converter para milissegundos
       
-      return {
+      const result = {
         status: 'connected',
         latency: Math.round(latencyMs * 100) / 100, // Arredondar para 2 casas decimais
         timestamp: new Date().toISOString(),
         driver: this.driver.constructor.name
       };
+      
+      this.emit('ping', result);
+      return result;
     } catch (error) {
       const endTime = process.hrtime.bigint();
       const latencyNs = endTime - startTime;
       const latencyMs = Number(latencyNs) / 1000000;
       
-      return {
+      const result = {
         status: 'disconnected',
         error: error.message,
         latency: Math.round(latencyMs * 100) / 100,
         timestamp: new Date().toISOString(),
         driver: this.driver.constructor.name
       };
+      
+      this.emit('pingError', result);
+      return result;
     }
   }
 
@@ -845,6 +921,8 @@ class HelperDB {
   async backup(filePath) {
     if (typeof filePath !== "string") throw new Error("First argument (filePath) needs to be a string");
     
+    this.emit('beforeBackup', { filePath });
+    
     const allData = await this.all();
     const backupData = {
       timestamp: new Date().toISOString(),
@@ -855,6 +933,8 @@ class HelperDB {
     
     const fs = require('fs').promises;
     await fs.writeFile(filePath, JSON.stringify(backupData, null, 2));
+    
+    this.emit('backup', { filePath, recordCount: allData.length, size: JSON.stringify(backupData).length });
     return backupData;
   }
 

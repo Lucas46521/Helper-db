@@ -464,27 +464,171 @@ try {
 
 ```javascript
 const db = new HelperDB({
-    // Configurações básicas
-    table: "minha_tabela",
-    filePath: "caminho/para/db.sqlite",
-    normalKeys: false, // usar notação de ponto
+    // 📁 Configurações básicas
+    table: "minha_tabela",              // Nome da tabela/coleção (padrão: "json")
+    filePath: "caminho/para/db.sqlite", // Caminho do arquivo de banco (padrão: "json.sqlite")
+    normalKeys: false,                  // Usar chaves normais ao invés de notação de ponto (padrão: false)
+    driver: new SqliteDriver("db.sqlite"), // Driver de banco personalizado
     
-    // Funcionalidades opcionais
-    enableCache: true,
-    cacheSize: 2000,
-    cacheTTL: 600000,
+    // 🚀 Cache e Performance
+    enableCache: true,      // Habilitar sistema de cache (padrão: true)
+    cacheSize: 2000,        // Tamanho máximo do cache (padrão: 1000)
+    cacheTTL: 600000,       // Tempo de vida do cache em ms (padrão: 300000 = 5 min)
     
-    enableBackup: true,
+    // 💾 Sistema de Backup
+    enableBackup: true,     // Habilitar backup automático (padrão: false)
     backupOptions: {
-        interval: 1800000, // 30 minutos
-        maxBackups: 5,
-        compression: true
+        interval: 1800000,  // Intervalo de backup em ms (padrão: 3600000 = 1h)
+        maxBackups: 5,      // Máximo de backups a manter (padrão: 10)
+        path: "./backups"   // Caminho para salvar backups (padrão: "./backups")
     },
     
-    enableValidation: true,
-    enableIndexing: true,
-    enableTransactions: true
+    // ✅ Funcionalidades Avançadas
+    enableValidation: true,    // Habilitar validação de schema (padrão: false)
+    enableIndexing: true,      // Habilitar sistema de índices (padrão: false)
+    enableTransactions: true   // Habilitar suporte a transações (padrão: false)
 });
+```
+
+## 📡 **Sistema de Eventos**
+
+A Helper.DB agora emite eventos para monitoramento e observabilidade em tempo real:
+
+### 🎧 **Eventos de Operações**
+
+```javascript
+const { HelperDB } = require("helper.db");
+const db = new HelperDB();
+
+// 🔄 Eventos de inicialização
+db.on('initialized', (data) => {
+    console.log('✅ Base inicializada:', data);
+    // { table: 'json', driver: 'SqliteDriver', options: {...} }
+});
+
+// 📝 Eventos de escrita
+db.on('beforeSet', (data) => {
+    console.log('⏳ Preparando para salvar:', data.key);
+});
+
+db.on('set', (data) => {
+    console.log('✅ Dados salvos:', data.key, data.value);
+});
+
+// 📖 Eventos de leitura
+db.on('beforeGet', (data) => {
+    console.log('⏳ Buscando dados:', data.key);
+});
+
+db.on('get', (data) => {
+    console.log('✅ Dados obtidos:', data.key, data.value);
+});
+
+// 🗑️ Eventos de exclusão
+db.on('beforeDelete', (data) => {
+    console.log('⏳ Preparando para deletar:', data.key);
+});
+
+db.on('delete', (data) => {
+    console.log('✅ Dados deletados:', data.key);
+});
+
+// 📚 Eventos de array
+db.on('beforePush', (data) => {
+    console.log('⏳ Adicionando ao array:', data.key, data.values);
+});
+
+db.on('push', (data) => {
+    console.log('✅ Array atualizado:', data.key, 'Novo tamanho:', data.newLength);
+});
+```
+
+### 🔍 **Eventos de Monitoramento**
+
+```javascript
+// 🩺 Eventos de ping/conexão
+db.on('beforePing', () => {
+    console.log('🔍 Testando conexão...');
+});
+
+db.on('ping', (result) => {
+    console.log('🟢 Conexão OK:', result.latency + 'ms');
+});
+
+db.on('pingError', (result) => {
+    console.log('🔴 Erro de conexão:', result.error);
+});
+
+// 💾 Eventos de backup
+db.on('beforeBackup', (data) => {
+    console.log('💾 Iniciando backup:', data.filePath);
+});
+
+db.on('backup', (data) => {
+    console.log('✅ Backup concluído:', data.recordCount, 'registros');
+});
+```
+
+### 🎯 **Casos de Uso dos Eventos**
+
+#### 📊 **Dashboard de Monitoramento**
+```javascript
+const stats = {
+    operations: 0,
+    errors: 0,
+    avgLatency: 0
+};
+
+db.on('set', () => stats.operations++);
+db.on('get', () => stats.operations++);
+db.on('delete', () => stats.operations++);
+
+db.on('ping', (result) => {
+    stats.avgLatency = (stats.avgLatency + result.latency) / 2;
+});
+
+db.on('pingError', () => stats.errors++);
+
+// Exibir estatísticas a cada 30 segundos
+setInterval(() => {
+    console.log('📊 Stats:', stats);
+}, 30000);
+```
+
+#### 🚨 **Sistema de Alertas**
+```javascript
+// Alertar sobre alta latência
+db.on('ping', (result) => {
+    if (result.latency > 1000) {
+        console.warn('⚠️ ALERTA: Alta latência detectada!', result.latency + 'ms');
+        // Enviar notificação, email, etc.
+    }
+});
+
+// Alertar sobre erros de conexão
+db.on('pingError', (result) => {
+    console.error('🚨 CRÍTICO: Falha na conexão!', result.error);
+    // Acionar sistema de recuperação
+});
+```
+
+#### 📝 **Sistema de Logs Avançado**
+```javascript
+const fs = require('fs').promises;
+
+// Log todas as operações
+const logOperation = async (operation, data) => {
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        operation,
+        data
+    };
+    await fs.appendFile('operations.log', JSON.stringify(logEntry) + '\n');
+};
+
+db.on('set', (data) => logOperation('SET', data));
+db.on('get', (data) => logOperation('GET', data));
+db.on('delete', (data) => logOperation('DELETE', data));
 ```
 
 ---
