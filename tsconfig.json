@@ -12,6 +12,6 @@
         "skipLibCheck": true,
         "declaration": true
     },
-    "exclude": ["tests", "node_modules", ".github", "docs"],
-    "include": ["out/**/*"]
+    "exclude": ["tests", "out"],
+    "include": ["src/**/*"]
 }
